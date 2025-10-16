@@ -1,14 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tag Diff Checker</title>
+<style>
+	body {
+		font-family: Arial, sans-serif;
+		background: #f6f7fb;
+		margin: 2rem;
+	}
+	h1 {
+		text-align: center;
+	}
+	textarea {
+		width: 100%;
+		height: 150px;
+		font-family: monospace;
+		font-size: 14px;
+		margin-bottom: 1rem;
+	}
+	button {
+		display: block;
+		margin: 1rem auto;
+		padding: 10px 20px;
+		font-size: 16px;
+		cursor: pointer;
+		border: none;
+		border-radius: 6px;
+		background-color: #4a90e2;
+		color: white;
+	}
+	.result {
+		background: white;
+		padding: 1rem;
+		border-radius: 8px;
+		box-shadow: 0 0 5px rgba(0,0,0,0.1);
+		white-space: pre-wrap;
+		font-family: monospace;
+	}
+	.extra {
+		background-color: #ffb3b3;
+	}
+	.missing {
+		background-color: #fff3b0;
+	}
+</style>
+</head>
+<body>
+
+<h1>Tag Diff Checker</h1>
+
+<h3>Original text:</h3>
+<textarea id="original"></textarea>
+
+<h3>Translated text:</h3>
+<textarea id="translated"></textarea>
+
+<button onclick="compareTags()">Compare</button>
+
+<h3>Results:</h3>
+<div id="result" class="result"></div>
+
 <script>
 function compareTags() {
 	const original = document.getElementById("original").value;
 	const translated = document.getElementById("translated").value;
 	const resultDiv = document.getElementById("result");
 
+	// Match tags like <1> or </1>
 	const tagRegex = /<\/?\d+>/g;
 	const origTags = original.match(tagRegex) || [];
 	const transTags = translated.match(tagRegex) || [];
 
-	// Count how many times each tag appears
 	const countTags = arr => arr.reduce((acc, t) => {
 		acc[t] = (acc[t] || 0) + 1;
 		return acc;
@@ -36,9 +100,8 @@ function compareTags() {
 		}
 	}
 
-	// Highlight missing & extra tags directly in text
+	// Highlight extra tags inside translated text
 	let highlighted = translated;
-
 	for (const tag in transCount) {
 		const diff = (transCount[tag] || 0) - (origCount[tag] || 0);
 		if (diff > 0) {
@@ -47,16 +110,9 @@ function compareTags() {
 		}
 	}
 
-	for (const tag in origCount) {
-		const diff = (origCount[tag] || 0) - (transCount[tag] || 0);
-		if (diff > 0) {
-			const re = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g");
-			highlighted += `<span class="missing">${tag}</span>`;
-		}
-	}
-
-	// Build readable summary
 	let output = highlighted;
+
+	// Append summary of missing/extra tags
 	if (missing.length > 0)
 		output += `\n\n🟨 <b>Missing tags:</b> ${missing.join(", ")}`;
 	if (extra.length > 0)
@@ -67,3 +123,6 @@ function compareTags() {
 	resultDiv.innerHTML = output;
 }
 </script>
+
+</body>
+</html>
