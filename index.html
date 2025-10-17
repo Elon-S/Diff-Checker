@@ -29,7 +29,6 @@
 			background-color: #4a90e2;
 			color: white;
 		}
-		section { margin-top: 1rem; }
 		.panel {
 			background: white;
 			padding: 1rem;
@@ -55,14 +54,13 @@
 
 	<button onclick="compareTags()">Vergelijken</button>
 
-	<section>
-		<h3>Resultaat</h3>
-		<div id="result" class="panel"></div>
-	</section>
+	<h3>Resultaat</h3>
+	<div id="result" class="panel"></div>
 
 	<script>
 		function escapeHtml(str) {
-			return str.replace(/&/g, "&amp;")
+			return str
+				.replace(/&/g, "&amp;")
 				.replace(/</g, "&lt;")
 				.replace(/>/g, "&gt;")
 				.replace(/"/g, "&quot;")
@@ -79,18 +77,10 @@
 			return m;
 		}
 
-		// Highlight maximaal 'count' keer (niet alle voorkomens)
-		function highlightLimited(text, tag, count, cssClass) {
-			if (count <= 0) return text;
-			const re = new RegExp(safeRegExpLiteral(tag), "g");
-			let remaining = count;
-			return text.replace(re, (match) => {
-				if (remaining > 0) {
-					remaining--;
-					return `<span class="${cssClass}">${match}</span>`;
-				}
-				return match;
-			});
+		function highlightEscaped(text, rawTag, cssClass) {
+			const escapedTag = escapeHtml(rawTag);
+			const re = new RegExp(safeRegExpLiteral(escapedTag), "g");
+			return text.replace(re, `<span class="${cssClass}">${escapedTag}</span>`);
 		}
 
 		function compareTags() {
@@ -98,7 +88,6 @@
 			const translated = document.getElementById("translated").value;
 			const resultDiv = document.getElementById("result");
 
-			// Tags als <1>, </1>, <23>, </23>
 			const tagRegex = /<\/?\d+>/g;
 			const origTags = original.match(tagRegex) || [];
 			const transTags = translated.match(tagRegex) || [];
@@ -106,66 +95,48 @@
 			const origCount = countTags(origTags);
 			const transCount = countTags(transTags);
 
-			// Bepaal ontbrekende en extra aantallen
-			const missingCounts = new Map();
-			const extraCounts = new Map();
+			let missingTags = [];
+			let extraTags = [];
 
-			// Missing: in origineel vaker dan in vertaling
 			for (const [tag, oCount] of origCount.entries()) {
 				const tCount = transCount.get(tag) || 0;
-				if (oCount > tCount) missingCounts.set(tag, oCount - tCount);
+				if (oCount > tCount) {
+					for (let i = 0; i < oCount - tCount; i++) missingTags.push(tag);
+				}
 			}
-			// Extra: in vertaling vaker dan in origineel
 			for (const [tag, tCount] of transCount.entries()) {
 				const oCount = origCount.get(tag) || 0;
-				if (tCount > oCount) extraCounts.set(tag, tCount - oCount);
+				if (tCount > oCount) {
+					for (let i = 0; i < tCount - oCount; i++) extraTags.push(tag);
+				}
 			}
 
-			// Highlight in vertaalde tekst de extra tags (alle voorkomens markeren is oké)
-			let highlightedTranslated = translated;
-			for (const [tag] of extraCounts.entries()) {
-				const re = new RegExp(safeRegExpLiteral(tag), "g");
-				highlightedTranslated = highlightedTranslated.replace(
-					re,
-					`<span class="extra">${tag}</span>`
-				);
+			// Escape entire texts so tags are always visible
+			let escapedOriginal = escapeHtml(original);
+			let escapedTranslated = escapeHtml(translated);
+
+			// Highlight missing tags in original
+			for (const tag of missingTags) {
+				escapedOriginal = highlightEscaped(escapedOriginal, tag, "missing");
+			}
+			// Highlight extra tags in translation
+			for (const tag of extraTags) {
+				escapedTranslated = highlightEscaped(escapedTranslated, tag, "extra");
 			}
 
-			// Highlight in originele tekst precies zoveel voorkomens als er missen
-			let highlightedOriginal = original;
-			for (const [tag, diff] of missingCounts.entries()) {
-				highlightedOriginal = highlightLimited(highlightedOriginal, tag, diff, "missing");
-			}
-
-			// Maak leesbare, ge-escapete lijsten (anders verdwijnen <..> in HTML)
-			const missingList = [];
-			for (const [tag, diff] of missingCounts.entries()) {
-				for (let i = 0; i < diff; i++) missingList.push(`<code>${escapeHtml(tag)}</code>`);
-			}
-			const extraList = [];
-			for (const [tag, diff] of extraCounts.entries()) {
-				for (let i = 0; i < diff; i++) extraList.push(`<code>${escapeHtml(tag)}</code>`);
-			}
-
+			// Build summary
 			let summaryHtml = "";
-			if (missingList.length > 0) {
-				summaryHtml += `🟨 <b>Missing tags (t.o.v. vertaling) in origineel gemarkeerd:</b> ${missingList.join(", ")}<br>`;
-			}
-			if (extraList.length > 0) {
-				summaryHtml += `🟥 <b>Extra tags (alleen in vertaling):</b> ${extraList.join(", ")}`;
-			}
-			if (missingList.length === 0 && extraList.length === 0) {
+			if (missingTags.length > 0)
+				summaryHtml += `🟨 <b>Missing tags (in vertaling ontbreken):</b> ${missingTags.map(t => `<code>${escapeHtml(t)}</code>`).join(", ")}<br>`;
+			if (extraTags.length > 0)
+				summaryHtml += `🟥 <b>Extra tags (alleen in vertaling):</b> ${extraTags.map(t => `<code>${escapeHtml(t)}</code>`).join(", ")}`;
+			if (missingTags.length === 0 && extraTags.length === 0)
 				summaryHtml = "✅ Alle tags komen overeen.";
-			}
 
-			// Toon twee panelen + samenvatting
+			// Output
 			resultDiv.innerHTML =
-				`<b>Vertaalde tekst (extra tags rood):</b>\n` +
-				`${highlightedTranslated}\n\n` +
-				`<hr>` +
-				`<b>Originele tekst (ontbrekende tags geel):</b>\n` +
-				`${highlightedOriginal}\n\n` +
-				`<hr>` +
+				`<b>Vertaalde tekst (extra tags rood):</b>\n${escapedTranslated}\n\n<hr>` +
+				`<b>Originele tekst (ontbrekende tags geel):</b>\n${escapedOriginal}\n\n<hr>` +
 				`<div class="summary">${summaryHtml}</div>`;
 		}
 	</script>
