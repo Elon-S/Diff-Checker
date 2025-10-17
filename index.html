@@ -68,11 +68,11 @@ function compareTags() {
 	const translated = document.getElementById("translated").value;
 	const resultDiv = document.getElementById("result");
 
-	// Match tags like <1> or </1>
 	const tagRegex = /<\/?\d+>/g;
 	const origTags = original.match(tagRegex) || [];
 	const transTags = translated.match(tagRegex) || [];
 
+	// Count tags
 	const countTags = arr => arr.reduce((acc, t) => {
 		acc[t] = (acc[t] || 0) + 1;
 		return acc;
@@ -84,43 +84,45 @@ function compareTags() {
 	let missing = [];
 	let extra = [];
 
-	// Find missing tags
+	// Detect missing
 	for (const tag in origCount) {
 		const diff = (origCount[tag] || 0) - (transCount[tag] || 0);
 		if (diff > 0) {
-			missing.push(`${tag} (${diff}×)`);
+			for (let i = 0; i < diff; i++) {
+				missing.push(tag);
+			}
 		}
 	}
 
-	// Find extra tags
+	// Detect extra
 	for (const tag in transCount) {
 		const diff = (transCount[tag] || 0) - (origCount[tag] || 0);
 		if (diff > 0) {
-			extra.push(`${tag} (${diff}×)`);
+			for (let i = 0; i < diff; i++) {
+				extra.push(tag);
+			}
 		}
 	}
 
-	// Highlight extra tags inside translated text
+	// Highlight extra tags in translated text
 	let highlighted = translated;
-	for (const tag in transCount) {
-		const diff = (transCount[tag] || 0) - (origCount[tag] || 0);
-		if (diff > 0) {
-			const re = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g");
-			highlighted = highlighted.replace(re, `<span class="extra">${tag}</span>`);
-		}
+	for (const tag of extra) {
+		const re = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g");
+		highlighted = highlighted.replace(re, `<span class="extra">${tag}</span>`);
 	}
 
-	let output = highlighted;
+	// Add visual markers for missing tags at end
+	if (missing.length > 0) {
+		highlighted += `\n\n<span class="missing">⚠️ Missing tags: ${missing.join(", ")}</span>`;
+	}
 
-	// Append summary of missing/extra tags
-	if (missing.length > 0)
-		output += `\n\n🟨 <b>Missing tags:</b> ${missing.join(", ")}`;
-	if (extra.length > 0)
-		output += `\n\n🟥 <b>Extra tags:</b> ${extra.join(", ")}`;
-	if (missing.length === 0 && extra.length === 0)
-		output = "✅ All tags match!";
+	// Build summary output
+	let summary = "";
+	if (missing.length > 0) summary += `🟨 <b>Missing tags:</b> ${missing.join(", ")}\n`;
+	if (extra.length > 0) summary += `🟥 <b>Extra tags:</b> ${extra.join(", ")}\n`;
+	if (missing.length === 0 && extra.length === 0) summary = "✅ All tags match!";
 
-	resultDiv.innerHTML = output;
+	resultDiv.innerHTML = highlighted + "\n\n" + summary;
 }
 </script>
 
